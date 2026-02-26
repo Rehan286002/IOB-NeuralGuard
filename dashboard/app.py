@@ -192,14 +192,14 @@ def show_auth():
 
             login_user = st.text_input("Username", key="login_user", placeholder="Enter username")
 
-            # Password with eye toggle
-            show_pw = st.checkbox("Show password", key="show_login_pw")
+            # Password with eye toggle BELOW the field
             login_pass = st.text_input(
                 "Password",
-                type="default" if show_pw else "password",
+                type="default" if st.session_state.get("show_login_pw", False) else "password",
                 key="login_pass",
                 placeholder="Enter password"
             )
+            show_pw = st.checkbox("👁  Show password", key="show_login_pw")
 
             if st.button("Sign In to NeuralGuard", key="login_btn"):
                 if login_user in st.session_state.users_db:
@@ -263,19 +263,19 @@ def show_auth():
                 "Risk Analyst", "SOC Operator", "Compliance Officer",
                 "Branch Manager", "IT Security", "Demo Access"
             ], key="su_role")
-            show_su_pw   = st.checkbox("Show password", key="show_su_pw")
             new_pass     = st.text_input(
                 "Password",
-                type="default" if show_su_pw else "password",
+                type="default" if st.session_state.get("show_su_pw", False) else "password",
                 key="su_pass",
                 placeholder="Min 6 characters"
             )
             new_pass2    = st.text_input(
                 "Confirm Password",
-                type="default" if show_su_pw else "password",
+                type="default" if st.session_state.get("show_su_pw", False) else "password",
                 key="su_pass2",
                 placeholder="Re-enter password"
             )
+            st.checkbox("👁  Show password", key="show_su_pw")
 
             if st.button("Create Account", key="signup_btn"):
                 if not new_name or not new_user or not new_pass:
@@ -486,16 +486,30 @@ def show_dashboard():
 
     def gen(n=120):
         now = pd.Timestamp.now()
+        channels     = np.random.choice(CHANNELS, n, p=[0.35,0.20,0.15,0.15,0.05,0.10])
+        amounts      = np.random.randint(500, 200000, n)
+        risk_scores  = np.random.randint(10, 100, n)
+        threat_types = np.random.choice(THREAT_TYPES, n, p=[0.76,0.08,0.07,0.05,0.04])
+        engines      = np.random.choice(ENGINES, n, p=[0.5,0.25,0.15,0.10])
+        latencies    = np.random.randint(18, 185, n)
+        accts        = [f"IOB{random.randint(10000000000,99999999999)}" for _ in range(n)]
+        statuses = []
+        for i in range(n):
+            r, t, a = risk_scores[i], threat_types[i], amounts[i]
+            if t != "None": statuses.append("BLOCKED")
+            elif r >= 78:   statuses.append("BLOCKED")
+            elif a > 150000 and r > 55: statuses.append("BLOCKED")
+            else: statuses.append("ALLOWED")
         return pd.DataFrame({
-            'Timestamp':   pd.date_range(end=now, periods=n, freq='30S'),
-            'Channel':     np.random.choice(CHANNELS, n, p=[0.35,0.20,0.15,0.15,0.05,0.10]),
-            'Amount_INR':  np.random.randint(500, 200000, n),
-            'Risk_Score':  np.random.randint(10, 100, n),
-            'Status':      np.random.choice(['ALLOWED','BLOCKED'], n, p=[0.83,0.17]),
-            'Threat_Type': np.random.choice(THREAT_TYPES, n, p=[0.83,0.05,0.05,0.04,0.03]),
-            'Latency_ms':  np.random.randint(18, 185, n),
-            'Sender_Acct': [f"IOB{random.randint(10000000000,99999999999)}" for _ in range(n)],
-            'Engine':      np.random.choice(ENGINES, n, p=[0.5,0.25,0.15,0.10]),
+            "Timestamp":   pd.date_range(end=now, periods=n, freq="30S"),
+            "Channel":     channels,
+            "Amount_INR":  amounts,
+            "Risk_Score":  risk_scores,
+            "Status":      statuses,
+            "Threat_Type": threat_types,
+            "Latency_ms":  latencies,
+            "Sender_Acct": accts,
+            "Engine":      engines,
         })
 
     def chart_layout(**extra):
