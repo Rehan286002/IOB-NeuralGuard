@@ -12,6 +12,18 @@ st.set_page_config(
     page_icon="https://www.iob.in/favicon.ico"
 )
 
+# ─────────────────────────────────────────────────────────────────────
+# AUTH CREDENTIALS (hardcoded for demo)
+# ─────────────────────────────────────────────────────────────────────
+VALID_USERS = {
+    "admin":   {"password": "iob@2025",  "role": "SOC Administrator",  "name": "Admin User"},
+    "analyst": {"password": "neural123", "role": "Risk Analyst",        "name": "Risk Analyst"},
+    "demo":    {"password": "demo",      "role": "Demo Access",         "name": "Demo User"},
+}
+
+# ─────────────────────────────────────────────────────────────────────
+# GLOBAL CSS
+# ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -20,6 +32,50 @@ st.markdown("""
 .block-container { padding: 0 1.5rem 1rem 1.5rem !important; }
 [data-testid="stSidebar"] { background-color: #0e1219 !important; border-right: 1px solid #1e2530 !important; }
 [data-testid="stSidebar"] > div:first-child { padding-top: 0 !important; }
+
+/* Login page inputs */
+div[data-testid="stTextInput"] input {
+    background: #111621 !important;
+    border: 1px solid #1e2530 !important;
+    border-radius: 4px !important;
+    color: #e2e8f0 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.85rem !important;
+    padding: 10px 14px !important;
+}
+div[data-testid="stTextInput"] input:focus {
+    border-color: #1e3a5f !important;
+    box-shadow: 0 0 0 2px rgba(30,58,95,0.3) !important;
+}
+div[data-testid="stTextInput"] label {
+    color: #4a5568 !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.68rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Login button */
+div[data-testid="stForm"] button[kind="primaryFormSubmit"],
+div[data-testid="stForm"] button {
+    background: #0f3460 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #1e3a5f !important;
+    border-radius: 4px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    width: 100% !important;
+    padding: 10px !important;
+    transition: all 0.2s !important;
+}
+div[data-testid="stForm"] button:hover {
+    background: #1a4a80 !important;
+    border-color: #3b82f6 !important;
+}
+
+/* Metrics */
 div[data-testid="stMetric"] {
     background: #111621; border: 1px solid #1e2530;
     border-radius: 4px; padding: 12px 16px !important;
@@ -33,7 +89,9 @@ div[data-testid="stMetricValue"] {
     color: #e2e8f0 !important; font-family: 'JetBrains Mono', monospace !important;
     font-size: 1.55rem !important; font-weight: 500 !important;
 }
-div[data-testid="stMetricDelta"] { font-family: 'JetBrains Mono', monospace !important; font-size: 0.72rem !important; }
+div[data-testid="stMetricDelta"] {
+    font-family: 'JetBrains Mono', monospace !important; font-size: 0.72rem !important;
+}
 .stDataFrame { border: 1px solid #1e2530 !important; border-radius: 4px !important; }
 iframe { border-radius: 4px; }
 div[data-testid="stCaption"] p {
@@ -44,12 +102,116 @@ div[data-testid="stCaption"] p {
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
-# SIDEBAR — split into small blocks to avoid Streamlit render limits
+# SESSION STATE
 # ─────────────────────────────────────────────────────────────────────
-with st.sidebar:
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "login_error" not in st.session_state:
+    st.session_state.login_error = ""
 
-    # Logo
-    st.markdown("""
+# ─────────────────────────────────────────────────────────────────────
+# LOGIN PAGE
+# ─────────────────────────────────────────────────────────────────────
+def show_login():
+    # Center the login card
+    _, col, _ = st.columns([1, 1.2, 1])
+    with col:
+        st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
+
+        # IOB Logo + Title
+        st.markdown("""
+<div style="text-align:center; margin-bottom:32px;">
+  <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="10" fill="#0f3460"/>
+    <text x="32" y="37" text-anchor="middle" font-family="Inter,sans-serif"
+      font-weight="700" font-size="20" fill="#ffffff" letter-spacing="2">IOB</text>
+    <rect x="10" y="48" width="44" height="3" rx="1.5" fill="#e8a020"/>
+  </svg>
+  <div style="color:#e2e8f0; font-size:1.3rem; font-weight:600; margin-top:14px; letter-spacing:0.01em;">
+    NeuralGuard
+  </div>
+  <div style="color:#374151; font-size:0.65rem; font-family:'JetBrains Mono',monospace;
+    letter-spacing:0.16em; text-transform:uppercase; margin-top:4px;">
+    Indian Overseas Bank · Fraud Intelligence Platform
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        # Login card
+        st.markdown("""
+<div style="background:#0e1219; border:1px solid #1e2530; border-top:2px solid #0f3460;
+  border-radius:6px; padding:28px 28px 20px 28px; margin-bottom:12px;">
+  <div style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:#374151;
+    text-transform:uppercase; letter-spacing:0.14em; margin-bottom:20px;
+    padding-bottom:12px; border-bottom:1px solid #1e2530;">
+    Secure SOC Access — Authorised Personnel Only
+  </div>
+""", unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            username = st.text_input("Username", placeholder="Enter username")
+            password = st.text_input("Password", type="password", placeholder="Enter password")
+            submitted = st.form_submit_button("Sign In to NeuralGuard")
+
+            if submitted:
+                if username in VALID_USERS and VALID_USERS[username]["password"] == password:
+                    st.session_state.authenticated = True
+                    st.session_state.user = {
+                        "username": username,
+                        "name":     VALID_USERS[username]["name"],
+                        "role":     VALID_USERS[username]["role"],
+                    }
+                    st.session_state.login_error = ""
+                    st.rerun()
+                else:
+                    st.session_state.login_error = "Invalid credentials. Access denied."
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Error message
+        if st.session_state.login_error:
+            st.markdown(f"""
+<div style="background:#0f0505; border:1px solid #7f1d1d; border-left:3px solid #dc2626;
+  border-radius:3px; padding:8px 14px; margin-top:8px;">
+  <span style="font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:#ef4444;">
+    &#9888; {st.session_state.login_error}
+  </span>
+</div>
+""", unsafe_allow_html=True)
+
+        # Demo credentials hint
+        st.markdown("""
+<div style="text-align:center; margin-top:20px;">
+  <div style="font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:#1e2530;
+    text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">Demo Credentials</div>
+  <div style="font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:#374151; line-height:1.8;">
+    username: <span style="color:#4b5563;">demo</span> &nbsp;·&nbsp; password: <span style="color:#4b5563;">demo</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
+
+        # Footer
+        st.markdown("""
+<div style="text-align:center; font-family:'JetBrains Mono',monospace; font-size:0.58rem; color:#1e2530;">
+  RESTRICTED SYSTEM · UNAUTHORISED ACCESS IS PROHIBITED<br>
+  IOB Treasury & Risk Division · Chennai HQ
+</div>
+""", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# MAIN DASHBOARD
+# ─────────────────────────────────────────────────────────────────────
+def show_dashboard():
+
+    # ── SIDEBAR ──────────────────────────────────────────────────────
+    with st.sidebar:
+
+        st.markdown("""
 <div style="padding:18px 16px 14px 16px; border-bottom:1px solid #1e2530; margin-bottom:4px;">
   <div style="display:flex; align-items:center; gap:12px;">
     <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
@@ -66,54 +228,78 @@ with st.sidebar:
 </div>
 """, unsafe_allow_html=True)
 
-    # Engine Status label
-    st.markdown("""
-<div style="padding:12px 16px 6px 16px;">
-  <div style="font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:#374151;
-    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px; border-left:2px solid #1e3a5f; padding-left:6px;">
-    Engine Status
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-    # Engine rows — each one separately so Streamlit doesn't choke
-    def engine_row(label, tag, color_bg, color_border, color_dot, color_text, color_tag):
+        # Logged-in user info
+        user = st.session_state.user
         st.markdown(f"""
+<div style="padding:10px 16px 10px 16px; border-bottom:1px solid #1e2530; margin-bottom:4px;">
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div style="width:28px; height:28px; border-radius:50%; background:#0f3460;
+      display:flex; align-items:center; justify-content:center;
+      font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:#e2e8f0; font-weight:600;">
+      {user['name'][0].upper()}
+    </div>
+    <div>
+      <div style="font-family:'Inter',sans-serif; font-size:0.78rem; color:#cbd5e1; font-weight:500;">
+        {user['name']}
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:0.6rem; color:#374151; margin-top:1px;">
+        {user['role']}
+      </div>
+    </div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+        # Logout button
+        st.markdown("<div style='padding:6px 16px 2px 16px;'>", unsafe_allow_html=True)
+        if st.button("Sign Out", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.user = None
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Engine Status
+        st.markdown("""
+<div style="padding:12px 16px 6px 16px; margin-top:4px;">
+  <div style="font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:#374151;
+    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;
+    border-left:2px solid #1e3a5f; padding-left:6px;">Engine Status</div>
+</div>
+""", unsafe_allow_html=True)
+
+        def engine_row(label, tag, bg, border, dot, text, tag_color):
+            st.markdown(f"""
 <div style="margin:0 16px 4px 16px; display:flex; align-items:center; gap:8px;
-  padding:6px 10px; background:{color_bg}; border:1px solid {color_border}; border-radius:3px;">
-  <div style="width:6px; height:6px; border-radius:50%; background:{color_dot}; flex-shrink:0;"></div>
-  <span style="font-family:'JetBrains Mono',monospace; font-size:0.67rem; color:{color_text};">{label}</span>
-  <span style="margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:{color_tag};">{tag}</span>
+  padding:6px 10px; background:{bg}; border:1px solid {border}; border-radius:3px;">
+  <div style="width:6px; height:6px; border-radius:50%; background:{dot}; flex-shrink:0;"></div>
+  <span style="font-family:'JetBrains Mono',monospace; font-size:0.67rem; color:{text};">{label}</span>
+  <span style="margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:{tag_color};">{tag}</span>
 </div>
 """, unsafe_allow_html=True)
 
-    engine_row("FastAPI Orchestrator", ":8000",   "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
-    engine_row("Apache Kafka",         "INGEST",  "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
-    engine_row("Redis Speed Gate",     "&lt;2ms", "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
-    engine_row("Mule Hunter (Neo4j)",  "ONLINE",  "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
-    engine_row("Voice Shield (Librosa)","ONLINE", "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
+        engine_row("FastAPI Orchestrator",  ":8000",  "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
+        engine_row("Apache Kafka",          "INGEST", "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
+        engine_row("Redis Speed Gate",      "&lt;2ms","#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
+        engine_row("Mule Hunter (Neo4j)",   "ONLINE", "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
+        engine_row("Voice Shield (Librosa)","ONLINE", "#0b1a0e","#1a3320","#22c55e","#86efac","#166534")
 
-    # Active Rule Engines label
-    st.markdown("""
+        st.markdown("""
 <div style="padding:12px 16px 6px 16px; margin-top:6px; border-top:1px solid #1e2530;">
   <div style="font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:#374151;
-    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px; border-left:2px solid #78350f; padding-left:6px;">
-    Active Rule Engines
-  </div>
+    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;
+    border-left:2px solid #78350f; padding-left:6px;">Active Rule Engines</div>
 </div>
 """, unsafe_allow_html=True)
 
-    engine_row("Velocity Gate (Redis)",       "5/min",  "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
-    engine_row("Spectral Flatness (Librosa)", "123Pay", "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
-    engine_row("Star Topology (Neo4j)",       "RING",   "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
+        engine_row("Velocity Gate (Redis)",       "5/min",  "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
+        engine_row("Spectral Flatness (Librosa)", "123Pay", "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
+        engine_row("Star Topology (Neo4j)",       "RING",   "#12100a","#2a2310","#f59e0b","#fcd34d","#78350f")
 
-    # Protected Channels
-    st.markdown("""
+        st.markdown("""
 <div style="padding:12px 16px 6px 16px; margin-top:6px; border-top:1px solid #1e2530;">
   <div style="font-family:'JetBrains Mono',monospace; font-size:0.59rem; color:#374151;
-    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:10px; border-left:2px solid #1e3a5f; padding-left:6px;">
-    Protected IOB Channels
-  </div>
+    letter-spacing:0.14em; text-transform:uppercase; margin-bottom:10px;
+    border-left:2px solid #1e3a5f; padding-left:6px;">Protected IOB Channels</div>
   <div style="font-family:'JetBrains Mono',monospace; font-size:0.64rem; color:#4b5563; line-height:2;">
     UPI / 123Pay &nbsp;&nbsp;&nbsp;&nbsp;(NPCI Gateway)<br>
     IOB Nanban &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Mobile App)<br>
@@ -125,8 +311,7 @@ with st.sidebar:
 </div>
 """, unsafe_allow_html=True)
 
-    # Fail-Open
-    st.markdown("""
+        st.markdown("""
 <div style="margin:10px 16px 16px 16px; border-top:1px solid #1e2530; padding-top:10px;">
   <div style="display:flex; align-items:center; gap:8px; padding:8px 10px;
     background:#0b1a0e; border:1px solid #166534; border-radius:3px;">
@@ -141,11 +326,8 @@ with st.sidebar:
 </div>
 """, unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────────────────────────────────
-# HEADER
-# ─────────────────────────────────────────────────────────────────────
-st.markdown("""
+    # ── HEADER ───────────────────────────────────────────────────────
+    st.markdown("""
 <div style="display:flex; align-items:center; gap:14px;
   padding:14px 0 12px 0; border-bottom:1px solid #1e2530; margin-bottom:14px;">
   <svg width="36" height="36" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
@@ -173,115 +355,109 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────────────────────────────
-# DATA
-# ─────────────────────────────────────────────────────────────────────
-CHANNELS = ['UPI / 123Pay','IOB Nanban','IOB NetBanking','ATM (FSS Switch)','Branch (Finacle)','NEFT / RTGS / IMPS']
-THREAT_TYPES = ['None','Mule Ring','Velocity Spike','Voice Deepfake','Account Takeover']
-ENGINES = ['Velocity Gate (Redis)','Mule Hunter (Neo4j)','Voice Shield (Librosa)','AI Router (Llama 3)']
+    # ── DATA ─────────────────────────────────────────────────────────
+    CHANNELS     = ['UPI / 123Pay','IOB Nanban','IOB NetBanking','ATM (FSS Switch)','Branch (Finacle)','NEFT / RTGS / IMPS']
+    THREAT_TYPES = ['None','Mule Ring','Velocity Spike','Voice Deepfake','Account Takeover']
+    ENGINES      = ['Velocity Gate (Redis)','Mule Hunter (Neo4j)','Voice Shield (Librosa)','AI Router (Llama 3)']
 
-def gen(n=120):
-    now = pd.Timestamp.now()
-    return pd.DataFrame({
-        'Timestamp':   pd.date_range(end=now, periods=n, freq='30S'),
-        'Channel':     np.random.choice(CHANNELS, n, p=[0.35,0.20,0.15,0.15,0.05,0.10]),
-        'Amount_INR':  np.random.randint(500, 200000, n),
-        'Risk_Score':  np.random.randint(10, 100, n),
-        'Status':      np.random.choice(['ALLOWED','BLOCKED'], n, p=[0.83,0.17]),
-        'Threat_Type': np.random.choice(THREAT_TYPES, n, p=[0.83,0.05,0.05,0.04,0.03]),
-        'Latency_ms':  np.random.randint(18, 185, n),
-        'Sender_Acct': [f"IOB{random.randint(10000000000,99999999999)}" for _ in range(n)],
-        'Engine':      np.random.choice(ENGINES, n, p=[0.5,0.25,0.15,0.10]),
-    })
+    def gen(n=120):
+        now = pd.Timestamp.now()
+        return pd.DataFrame({
+            'Timestamp':   pd.date_range(end=now, periods=n, freq='30S'),
+            'Channel':     np.random.choice(CHANNELS, n, p=[0.35,0.20,0.15,0.15,0.05,0.10]),
+            'Amount_INR':  np.random.randint(500, 200000, n),
+            'Risk_Score':  np.random.randint(10, 100, n),
+            'Status':      np.random.choice(['ALLOWED','BLOCKED'], n, p=[0.83,0.17]),
+            'Threat_Type': np.random.choice(THREAT_TYPES, n, p=[0.83,0.05,0.05,0.04,0.03]),
+            'Latency_ms':  np.random.randint(18, 185, n),
+            'Sender_Acct': [f"IOB{random.randint(10000000000,99999999999)}" for _ in range(n)],
+            'Engine':      np.random.choice(ENGINES, n, p=[0.5,0.25,0.15,0.10]),
+        })
 
-def chart_layout(**extra):
-    base = dict(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='#0e1219',
-        font=dict(family="JetBrains Mono", color="#4b5563", size=10),
-        margin=dict(l=0, r=0, t=10, b=0),
-        xaxis=dict(gridcolor='#1e2530', linecolor='#1e2530', tickfont=dict(size=9)),
-        yaxis=dict(gridcolor='#1e2530', linecolor='#1e2530', tickfont=dict(size=9)),
-    )
-    base.update(extra)
-    return base
+    def chart_layout(**extra):
+        base = dict(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='#0e1219',
+            font=dict(family="JetBrains Mono", color="#4b5563", size=10),
+            margin=dict(l=0, r=0, t=10, b=0),
+            xaxis=dict(gridcolor='#1e2530', linecolor='#1e2530', tickfont=dict(size=9)),
+            yaxis=dict(gridcolor='#1e2530', linecolor='#1e2530', tickfont=dict(size=9)),
+        )
+        base.update(extra)
+        return base
 
-def section(label):
-    st.markdown(f"""
+    def section(label):
+        st.markdown(f"""
 <div style="font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:#374151;
   text-transform:uppercase; letter-spacing:0.14em; margin-bottom:8px;
-  padding-left:8px; border-left:2px solid #1e3a5f;">
-  {label}
-</div>""", unsafe_allow_html=True)
+  padding-left:8px; border-left:2px solid #1e3a5f;">{label}</div>
+""", unsafe_allow_html=True)
 
-placeholder = st.empty()
+    placeholder = st.empty()
 
-# ─────────────────────────────────────────────────────────────────────
-# LIVE LOOP
-# ─────────────────────────────────────────────────────────────────────
-while True:
-    df  = gen()
-    blocked  = df[df['Status'] == 'BLOCKED']
-    tps      = random.randint(1100, 1400)
-    avg_lat  = int(df['Latency_ms'].mean())
+    # ── LIVE LOOP ─────────────────────────────────────────────────────
+    while True:
+        df       = gen()
+        blocked  = df[df['Status'] == 'BLOCKED']
+        tps      = random.randint(1100, 1400)
+        avg_lat  = int(df['Latency_ms'].mean())
 
-    with placeholder.container():
+        with placeholder.container():
 
-        # KPIs
-        k1,k2,k3,k4,k5 = st.columns(5)
-        k1.metric("Live TPS",               f"{tps:,}",            delta=f"{random.randint(-30,60)}")
-        k2.metric("Engine Latency",         f"{avg_lat} ms",       delta=f"{random.randint(-8,8)} ms",   delta_color="inverse")
-        k3.metric("Threats Blocked (2H)",   len(blocked),          delta=f"+{random.randint(1,4)}",      delta_color="inverse")
-        k4.metric("Mule Rings Detected",    random.randint(2,5),   delta="+1",                           delta_color="inverse")
-        k5.metric("Fail-Open Triggers",     "0",                   delta="0")
+            # KPIs
+            k1,k2,k3,k4,k5 = st.columns(5)
+            k1.metric("Live TPS",             f"{tps:,}",          delta=f"{random.randint(-30,60)}")
+            k2.metric("Engine Latency",       f"{avg_lat} ms",     delta=f"{random.randint(-8,8)} ms",  delta_color="inverse")
+            k3.metric("Threats Blocked (2H)", len(blocked),        delta=f"+{random.randint(1,4)}",     delta_color="inverse")
+            k4.metric("Mule Rings Detected",  random.randint(2,5), delta="+1",                          delta_color="inverse")
+            k5.metric("Fail-Open Triggers",   "0",                 delta="0")
 
-        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-        # Charts
-        c1,c2,c3 = st.columns([2.2,1.4,1.4])
+            # Charts
+            c1,c2,c3 = st.columns([2.2,1.4,1.4])
 
-        with c1:
-            section("IOB Omni-Channel Traffic vs. Threat Interceptions")
-            ch = df.groupby(['Channel','Status']).size().reset_index(name='Count')
-            fig1 = px.bar(ch, x="Channel", y="Count", color="Status",
-                color_discrete_map={"ALLOWED":"#1f6b45","BLOCKED":"#991b1b"},
-                template="plotly_dark", barmode="group")
-            fig1.update_layout(**chart_layout(
-                legend=dict(orientation="h", y=1.1, font=dict(size=9))))
-            fig1.update_traces(marker_line_width=0)
-            st.plotly_chart(fig1, use_container_width=True)
+            with c1:
+                section("IOB Omni-Channel Traffic vs. Threat Interceptions")
+                ch = df.groupby(['Channel','Status']).size().reset_index(name='Count')
+                fig1 = px.bar(ch, x="Channel", y="Count", color="Status",
+                    color_discrete_map={"ALLOWED":"#1f6b45","BLOCKED":"#991b1b"},
+                    template="plotly_dark", barmode="group")
+                fig1.update_layout(**chart_layout(legend=dict(orientation="h", y=1.1, font=dict(size=9))))
+                fig1.update_traces(marker_line_width=0)
+                st.plotly_chart(fig1, use_container_width=True)
 
-        with c2:
-            section("Threat Vector Distribution")
-            threats = df[df['Threat_Type'] != 'None']
-            fig2 = px.pie(threats, names='Threat_Type', hole=0.6,
-                color_discrete_sequence=['#7f1d1d','#78350f','#1e3a5f','#3b1e63'],
-                template="plotly_dark")
-            fig2.update_traces(
-                textposition='inside', textinfo='percent+label',
-                textfont=dict(size=8, color="#9ca3af"),
-                marker=dict(line=dict(color='#0e1219', width=2)))
-            fig2.update_layout(**chart_layout(showlegend=False,
-                annotations=[dict(text=f"<b>{len(threats)}</b><br>alerts",
-                    x=0.5, y=0.5, showarrow=False,
-                    font=dict(color="#6b7280", family="JetBrains Mono", size=10))]))
-            st.plotly_chart(fig2, use_container_width=True)
+            with c2:
+                section("Threat Vector Distribution")
+                threats = df[df['Threat_Type'] != 'None']
+                fig2 = px.pie(threats, names='Threat_Type', hole=0.6,
+                    color_discrete_sequence=['#7f1d1d','#78350f','#1e3a5f','#3b1e63'],
+                    template="plotly_dark")
+                fig2.update_traces(
+                    textposition='inside', textinfo='percent+label',
+                    textfont=dict(size=8, color="#9ca3af"),
+                    marker=dict(line=dict(color='#0e1219', width=2)))
+                fig2.update_layout(**chart_layout(showlegend=False,
+                    annotations=[dict(text=f"<b>{len(threats)}</b><br>alerts",
+                        x=0.5, y=0.5, showarrow=False,
+                        font=dict(color="#6b7280", family="JetBrains Mono", size=10))]))
+                st.plotly_chart(fig2, use_container_width=True)
 
-        with c3:
-            section("Risk Score Distribution")
-            fig3 = go.Figure()
-            fig3.add_trace(go.Histogram(x=df[df['Status']=='BLOCKED']['Risk_Score'],
-                name='Blocked', marker_color='#7f1d1d', opacity=0.9, nbinsx=15))
-            fig3.add_trace(go.Histogram(x=df[df['Status']=='ALLOWED']['Risk_Score'],
-                name='Allowed', marker_color='#1f6b45', opacity=0.5, nbinsx=15))
-            fig3.update_layout(**chart_layout(barmode='overlay',
-                legend=dict(orientation="h", y=1.1, font=dict(size=9)),
-                xaxis=dict(title=dict(text="Risk Score", font=dict(size=9)), gridcolor='#1e2530', tickfont=dict(size=9)),
-                yaxis=dict(title=dict(text="Count",      font=dict(size=9)), gridcolor='#1e2530', tickfont=dict(size=9))))
-            fig3.update_traces(marker_line_width=0)
-            st.plotly_chart(fig3, use_container_width=True)
+            with c3:
+                section("Risk Score Distribution")
+                fig3 = go.Figure()
+                fig3.add_trace(go.Histogram(x=df[df['Status']=='BLOCKED']['Risk_Score'],
+                    name='Blocked', marker_color='#7f1d1d', opacity=0.9, nbinsx=15))
+                fig3.add_trace(go.Histogram(x=df[df['Status']=='ALLOWED']['Risk_Score'],
+                    name='Allowed', marker_color='#1f6b45', opacity=0.5, nbinsx=15))
+                fig3.update_layout(**chart_layout(barmode='overlay',
+                    legend=dict(orientation="h", y=1.1, font=dict(size=9)),
+                    xaxis=dict(title=dict(text="Risk Score", font=dict(size=9)), gridcolor='#1e2530', tickfont=dict(size=9)),
+                    yaxis=dict(title=dict(text="Count",      font=dict(size=9)), gridcolor='#1e2530', tickfont=dict(size=9))))
+                fig3.update_traces(marker_line_width=0)
+                st.plotly_chart(fig3, use_container_width=True)
 
-        # Alert banner
-        st.markdown("""
+            # Alert banner
+            st.markdown("""
 <div style="display:flex; align-items:center; gap:16px; background:#0f0505;
   border:1px solid #7f1d1d; border-left:3px solid #dc2626; border-radius:3px;
   padding:10px 16px; margin-bottom:10px;">
@@ -306,31 +482,40 @@ while True:
 </div>
 """, unsafe_allow_html=True)
 
-        # Event log
-        section("Live Interception Feed — IOB Payment Switch")
+            # Event log
+            section("Live Interception Feed — IOB Payment Switch")
 
-        recent = df.sort_values('Timestamp', ascending=False).head(15)[[
-            'Timestamp','Channel','Sender_Acct','Amount_INR',
-            'Risk_Score','Engine','Threat_Type','Status','Latency_ms'
-        ]].copy()
-        recent['Timestamp']  = recent['Timestamp'].dt.strftime('%H:%M:%S')
-        recent['Amount_INR'] = recent['Amount_INR'].apply(lambda x: f"\u20b9{x:,}")
-        recent['Latency_ms'] = recent['Latency_ms'].apply(lambda x: f"{x}ms")
+            recent = df.sort_values('Timestamp', ascending=False).head(15)[[
+                'Timestamp','Channel','Sender_Acct','Amount_INR',
+                'Risk_Score','Engine','Threat_Type','Status','Latency_ms'
+            ]].copy()
+            recent['Timestamp']  = recent['Timestamp'].dt.strftime('%H:%M:%S')
+            recent['Amount_INR'] = recent['Amount_INR'].apply(lambda x: f"\u20b9{x:,}")
+            recent['Latency_ms'] = recent['Latency_ms'].apply(lambda x: f"{x}ms")
 
-        styled = recent.style \
-            .applymap(lambda v: 'color:#ef4444;font-weight:600' if v=='BLOCKED' else 'color:#22c55e;',         subset=['Status']) \
-            .applymap(lambda v: 'color:#f59e0b;font-weight:500' if v!='None'    else 'color:#374151;',         subset=['Threat_Type']) \
-            .applymap(lambda _: 'color:#3b82f6;font-family:JetBrains Mono,monospace;font-size:0.75rem',        subset=['Engine']) \
-            .applymap(lambda _: 'font-family:JetBrains Mono,monospace;font-size:0.75rem;color:#4b5563',        subset=['Timestamp','Latency_ms','Risk_Score']) \
-            .applymap(lambda _: 'font-family:JetBrains Mono,monospace;font-size:0.75rem;color:#6b7280',        subset=['Sender_Acct'])
+            styled = recent.style \
+                .applymap(lambda v: 'color:#ef4444;font-weight:600' if v=='BLOCKED' else 'color:#22c55e;',   subset=['Status']) \
+                .applymap(lambda v: 'color:#f59e0b;font-weight:500' if v!='None'    else 'color:#374151;',   subset=['Threat_Type']) \
+                .applymap(lambda _: 'color:#3b82f6;font-family:JetBrains Mono,monospace;font-size:0.75rem',  subset=['Engine']) \
+                .applymap(lambda _: 'font-family:JetBrains Mono,monospace;font-size:0.75rem;color:#4b5563',  subset=['Timestamp','Latency_ms','Risk_Score']) \
+                .applymap(lambda _: 'font-family:JetBrains Mono,monospace;font-size:0.75rem;color:#6b7280',  subset=['Sender_Acct'])
 
-        st.dataframe(styled, use_container_width=True, height=350)
+            st.dataframe(styled, use_container_width=True, height=350)
 
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        st.caption(
-            f"IOB NeuralGuard v1.0  ·  Sidecar — Zero impact on Finacle Core  ·  "
-            f"Air-Gapped · RBI Compliant  ·  All decisions <200ms  ·  "
-            f"Refresh {pd.Timestamp.now().strftime('%H:%M:%S')} IST"
-        )
+            st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+            st.caption(
+                f"IOB NeuralGuard v1.0  ·  Sidecar — Zero impact on Finacle Core  ·  "
+                f"Air-Gapped · RBI Compliant  ·  All decisions <200ms  ·  "
+                f"Refresh {pd.Timestamp.now().strftime('%H:%M:%S')} IST"
+            )
 
-    time.sleep(4)
+        time.sleep(4)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ROUTER
+# ─────────────────────────────────────────────────────────────────────
+if not st.session_state.authenticated:
+    show_login()
+else:
+    show_dashboard()
